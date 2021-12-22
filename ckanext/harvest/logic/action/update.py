@@ -353,7 +353,7 @@ def harvest_sources_job_history_clear(context, data_dict):
     '''
     check_access('harvest_sources_clear', context, data_dict)
 
-    keep_actual = data_dict.get('keep_actual', False)
+    keep_current = data_dict.get('keep_current', False)
 
     job_history_clear_results = []
     # We assume that the maximum of 1000 (hard limit) rows should be enough
@@ -363,7 +363,7 @@ def harvest_sources_job_history_clear(context, data_dict):
         for data_dict in harvest_packages:
             try:
                 clear_result = get_action('harvest_source_job_history_clear')(
-                    context, {'id': data_dict['id'], 'keep_actual': keep_actual})
+                    context, {'id': data_dict['id'], 'keep_current': keep_current})
                 job_history_clear_results.append(clear_result)
             except NotFound:
                 # Ignoring not existent harvest sources because of a possibly corrupt search index
@@ -386,7 +386,7 @@ def harvest_source_job_history_clear(context, data_dict):
     check_access('harvest_source_clear', context, data_dict)
 
     harvest_source_id = data_dict.get('id', None)
-    keep_actual = data_dict.get('keep_actual', False)
+    keep_current = data_dict.get('keep_current', False)
 
     source = HarvestSource.get(harvest_source_id)
     if not source:
@@ -397,7 +397,7 @@ def harvest_source_job_history_clear(context, data_dict):
 
     model = context['model']
 
-    if keep_actual:
+    if keep_current:
         sql = '''BEGIN;
         DELETE FROM harvest_object_error WHERE harvest_object_id
          IN (SELECT id FROM harvest_object AS obj WHERE harvest_source_id = '{harvest_source_id}'
