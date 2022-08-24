@@ -32,6 +32,10 @@ def about(id):
 def clear(id):
     return utils.clear_view(id)
 
+#2021.12.2
+def complete(id):
+    return utils.completely_delete_view(id)
+
 
 def job_list(source):
     return utils.job_list_view(source)
@@ -72,6 +76,10 @@ harvester.add_url_rule(
 )
 harvester.add_url_rule("/" + utils.DATASET_TYPE_NAME + "/clear/<id>",
                        view_func=clear,
+                       methods=(u'POST', u'GET'))
+#2021.12.2
+harvester.add_url_rule("/" + utils.DATASET_TYPE_NAME + "/complete/<id>",
+                       view_func=complete,
                        methods=(u'POST', u'GET'))
 harvester.add_url_rule(
     "/" + utils.DATASET_TYPE_NAME + "/<source>/job",

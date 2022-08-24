@@ -227,6 +227,18 @@ def clear_harvest_source_history(source_id):
         return "Cleared job history for all harvest sources: {0} source(s)".format(
             len(cleared_sources_dicts))
 
+#2021.12.2
+def remove_complete_harvest_source(source_id_or_name):
+    context = {
+        "model": model,
+        "session": model.Session,
+        "user": _admin_user()["name"],
+    }
+    source = tk.get_action("harvest_source_show")(context, {
+        "id": source_id_or_name
+    })
+    tk.get_action("complete_harvest_source_delete")(context, {"id": source["id"]})
+    tk.get_action("dataset_purge")(context,{'id':source["id"]})
 
 def abort_failed_jobs(job_life_span, include, exclude):
     context = {
@@ -689,6 +701,22 @@ def clear_view(id):
     return h.redirect_to(
         h.url_for('{0}_admin'.format(DATASET_TYPE_NAME), id=id))
 
+#2021.12.2
+def completely_delete_view(id):
+    try:
+        context = {'model': model, 'user': tk.c.user, 'session': model.Session}
+        tk.get_action('complete_harvest_source_delete')(context, {'id': id})
+        h.flash_success(_('Harvest source deleted completely'))
+        tk.get_action("dataset_purge")(context,{'id':id})
+    except tk.ObjectNotFound:
+        return tk.abort(404, _('Harvest source not found'))
+    except tk.NotAuthorized:
+        return tk.abort(401, _not_auth_message())
+    except Exception as e:
+        msg = 'An error occurred: [%s]' % str(e)
+        h.flash_error(msg)
+
+    return h.redirect_to('/harvest')
 
 def delete_view(id):
     try:
@@ -699,9 +727,20 @@ def delete_view(id):
                                                             u'true',
                                                             u'1',
                                                         )
-
+        #2021.12.2 add
+        context['completely_delete_resource'] = tk.request.params.get('complete',
+                                                        '').lower() in (
+                                                            u'true',
+                                                            u'1',
+                                                        )
+        #
         tk.get_action('harvest_source_delete')(context, {'id': id})
-
+        #2022.08.02 
+        if context['completely_delete_resource']:
+            h.flash_success(_('Harvesting source and dataset successfully cleared'))
+            tk.get_action("dataset_purge")(context,{'id':id})
+            return h.redirect_to('/harvest')
+        #
         if context['clear_source']:
             h.flash_success(_('Harvesting source successfully cleared'))
         else:

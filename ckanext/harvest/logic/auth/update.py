@@ -48,6 +48,24 @@ def harvest_source_clear(context, data_dict):
     '''
     return harvest_source_update(context, data_dict)
 
+#2021.12.2
+def complete_harvest_sources_delete(context, data_dict):
+    '''
+        Authorization check for clearing history for all harvest sources
+        Only sysadmins can do it
+    '''
+    if not user_is_sysadmin(context):
+        return {'success': False, 'msg': pt._('Only sysadmins can clear history for all harvest jobs')}
+    else:
+        return {'success': True}
+
+#2021.12.2
+def complete_harvest_source_delete(context, data_dict):
+    '''
+        Authorization check for clearing a harvest source
+        It forwards to harvest_source_update
+    '''
+    return harvest_source_update(context, data_dict)
 
 def harvest_objects_import(context, data_dict):
     '''
