@@ -25,6 +25,8 @@ from ckanext.harvest.model import (HarvestObject, HarvestGatherError,
 from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.harvest.interfaces import IHarvester
 
+import requests
+
 if p.toolkit.check_ckan_version(min_version='2.3'):
     from ckan.lib.munge import munge_tag
 else:
@@ -303,7 +305,9 @@ class HarvesterBase(SingletonPlugin):
             if self.config and self.config.get('clean_tags', False):
                 tags = package_dict.get('tags', [])
                 package_dict['tags'] = self._clean_tags(tags)
-
+            #resources’ url dict 
+            target_urls={}
+            site_url = config.get('ckan.site_url')
             # Check if package exists
             try:
                 # _find_existing_package can be overridden if necessary
@@ -317,6 +321,13 @@ class HarvesterBase(SingletonPlugin):
                    package_dict['metadata_modified'] > existing_package_dict.get('metadata_modified'):
                     log.info('Package with GUID %s exists and needs to be updated' % harvest_object.guid)
                     # Update package
+
+                    #filestore API resource update
+                    for r in package_dict[u'resources']:
+                         #get resources' url before updating package
+                         target_urls[r[u'id']]=r[u'url'] 
+                    action_url = site_url+'/api/action/resource_update' 
+
                     context.update({'id': package_dict['id']})
                     package_dict.setdefault('name',
                                             existing_package_dict['name'])
@@ -346,7 +357,13 @@ class HarvesterBase(SingletonPlugin):
 
             except p.toolkit.ObjectNotFound:
                 # Package needs to be created
-
+                
+                #filestore API resource create
+                for r in package_dict[u'resources']:
+                    #get resources' url before updating package
+                    target_urls[r[u'id']]=r[u'url']
+                action_url = site_url+'/api/action/resource_create'
+  
                 # Get rid of auth audit on the context otherwise we'll get an
                 # exception
                 context.pop('__auth_audit', None)
@@ -373,6 +390,46 @@ class HarvesterBase(SingletonPlugin):
                     else 'package_create_rest')(context, package_dict)
 
             Session.commit()
+            try:
+                if new_package[u'resources']:
+                    resource_ids = [r[u'id'] for r in new_package[u'resources']]
+                    for r in new_package[u'resources']:
+                        r_format=r[u'format'].lower()
+                        r_url=target_urls[r[u'id']]
+                        #Your ckan api key
+                        api_key=""
+                        if r_url!='': 
+                            r_get=requests.get(r_url, allow_redirects=True)
+                            
+                            if "Content-Disposition" in r_get.headers.keys(): 
+                                log.info(r_get.headers["Content-Disposition"])
+                                fname = re.findall("filename=(.+)", r_get.headers["Content-Disposition"])[0]
+                            else:
+                                fname = r_url.split("/")[-1]
+                            r_post=requests.post(
+                                   action_url,
+                                   data=r,
+                                   headers={"X-CKAN-API-Key": api_key},
+                                   files={'upload':(fname,r_get.content)}
+                            )
+                        else:
+                            r[u'url']=""
+                            #update resource but not upload any file
+                            r_post=requests.post(
+                                   action_url,
+                                   data=r,
+                                   headers={"X-CKAN-API-Key": api_key},
+                                   files={'upload':(fname,r_get.content)}
+                            ) 
+                        request_result=r_post.json()
+                        if request_result[u'success']:
+                            log.info("result:{}".format(request_result))
+                            log.info("The resource {} is uploaded to FileStore".format(r[u'id']))
+                        else:
+                            log.info(action_url)
+                            log.info("The FileStore upload is failed!")
+            except Exception as e:
+                print(e)
 
             return True
 
