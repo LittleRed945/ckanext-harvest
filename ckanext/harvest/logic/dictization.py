@@ -59,6 +59,25 @@ def harvest_job_dictize(job, context):
         if count > 0:
             out['stats']['errored'] = out['stats'].get('errored', 0) + count
 
+        #delete count improve
+        current_objects = model.Session.query(
+            HarvestObject.harvest_source_id,
+            func.count(HarvestObject.id).label('total_objects'))\
+            .filter_by(current=True)\
+            .group_by(HarvestObject.harvest_source_id).all()
+        except_deleted_count=0
+        for status, count in stats:
+            if status != 'deleted':
+                except_deleted_count+=count
+        try:
+            for source_id,count in current_objects:
+                if source_id == out['source_id']:
+                    this_source_count=count
+            out['stats']['deleted']=this_source_count-except_deleted_count
+        except Exception as e:
+            print(e)
+            pass
+
     if context.get('return_error_summary', True):
         q = model.Session.query(
             HarvestObjectError.message,
