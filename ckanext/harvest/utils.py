@@ -643,6 +643,25 @@ def job_abort_view(source, id):
         h.url_for('{0}_admin'.format(DATASET_TYPE_NAME), id=source))
 
 
+def job_terminate_view(source):
+
+    try:
+        context = {'model': model, 'user': tk.c.user}
+        tk.get_action('harvest_job_terminate')(context, {})
+        h.flash_success(_('Harvest job terminated'))
+
+    except tk.ObjectNotFound:
+        return tk.abort(404, _('Harvest job not found'))
+    except tk.NotAuthorized:
+        return tk.abort(401, _not_auth_message())
+    except Exception as e:
+        msg = 'An error occurred: [%s]' % str(e)
+        return tk.abort(500, msg)
+
+    return h.redirect_to(
+        h.url_for('{0}_admin'.format(DATASET_TYPE_NAME), id=source))
+
+
 def refresh_view(id):
     try:
         context = {'model': model, 'user': tk.c.user, 'session': model.Session}

@@ -38,6 +38,9 @@ class ViewController(BaseController):
     def abort_job(self, source, id):
         return utils.job_abort_view(source, id)
 
+    def terminate_job(self, source):
+        return utils.job_terminate_view(source)
+
     def show_last_job(self, source):
         return utils.job_show_last_view(source)
 

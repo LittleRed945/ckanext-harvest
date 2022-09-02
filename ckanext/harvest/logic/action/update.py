@@ -32,7 +32,7 @@ from ckanext.harvest.utils import (
     DATASET_TYPE_NAME
 )
 from ckanext.harvest.queue import (
-    get_gather_publisher, resubmit_jobs, resubmit_objects)
+    get_gather_publisher, resubmit_jobs, resubmit_objects, purge_queues, delete_queues)
 
 from ckanext.harvest.model import HarvestSource, HarvestJob, HarvestObject, HarvestGatherError
 from ckanext.harvest.logic import HarvestJobExists
@@ -834,8 +834,9 @@ def harvest_job_abort(context, data_dict):
     Aborts a harvest job. Given a harvest source_id, it looks for the latest
     one and (assuming it not already Finished) marks it as Finished. It also
     marks any of that source's harvest objects and (if not complete or error)
-    marks them "ERROR", so any left in limbo are cleaned up. Does not actually
-    stop running any queued harvest fetchs/objects.
+    marks them "ERROR", so any left in limbo are cleaned up.Then it will 
+    delete that harvest job and its harvest objects from the gather queue and fetch
+    queue,and then creates an Gather Error for the job.
 
     Specify either id or source_id.
 
@@ -880,14 +881,18 @@ def harvest_job_abort(context, data_dict):
     else:
         log.info('Harvest job unchanged. Source %s status is: "%s"',
                  job['id'], job['status'])
-
+    
+    job_id = job['id']
     # HarvestObjects set to ERROR
     job_obj = HarvestJob.get(job['id'])
     objs = job_obj.objects
+    abort_obj_ids=[]
     for obj in objs:
         if obj.state not in ('COMPLETE', 'ERROR'):
             old_state = obj.state
             obj.state = 'ERROR'
+            obj.report_status = "errored"
+            abort_obj_ids.append(obj.id)
             log.info('Harvest object changed state from "%s" to "%s": %s',
                      old_state, obj.state, obj.id)
         else:
@@ -896,7 +901,66 @@ def harvest_job_abort(context, data_dict):
     model.repo.commit_and_remove()
 
     job_obj = HarvestJob.get(job['id'])
+    delete_queues(job_id,abort_obj_ids)
+    HarvestGatherError.create('job is aborted.',job_obj)
     return harvest_job_dictize(job_obj, context)
+
+def harvest_job_terminate(context, data_dict):
+    '''
+    Terminate all running or new harvest jobs.marks these as Finished. It also
+    creates gather errors for these jobs, so these jobs won't be seen as success jobs.
+
+    '''
+    check_access('harvest_job_terminate', context, data_dict)
+    purge_queues()
+    model = context['model']
+    jobs = harvest_job_list(
+        context, {'status': u'New'})
+    if len(jobs):
+        for job in jobs:
+            job_obj = HarvestJob.get(job['id'])
+            now = datetime.datetime.utcnow()
+            job_obj.status = new_status = u'Finished'
+            job_obj.finished = now
+            log.info('Harvest job "%s" is terminated',
+                 job['id'])
+            HarvestGatherError.create('job is terminated.',job_obj)
+            #set its obj state to ERROR
+            objs = job_obj.objects
+            for obj in objs:
+                if obj.state not in ('COMPLETE', 'ERROR'):
+                    old_state = obj.state
+                    obj.state = 'ERROR'
+                    obj.report_status = "errored"
+                    log.info('Harvest object changed state from "%s" to "%s": %s',
+                        old_state, obj.state, obj.id)
+        else:
+            log.info('Harvest object not changed from "%s": %s',
+                     obj.state, obj.id)
+    #get the jobs that the status are Running
+    jobs = harvest_job_list(
+        context, {'status': u'Running'})
+    if len(jobs):
+        for job in jobs:
+            job_obj = HarvestJob.get(job['id'])
+            now = datetime.datetime.utcnow()
+            job_obj.status = new_status = u'Finished'
+            job_obj.finished = now
+            log.info('Harvest job "%s" is terminated',
+                 job['id'])
+            HarvestGatherError.create('job is terminated.',job_obj)
+            #set its obj state to ERROR
+            objs = job_obj.objects
+            for obj in objs:
+                if obj.state not in ('COMPLETE', 'ERROR'):
+                    old_state = obj.state
+                    obj.state = 'ERROR'
+                    obj.report_status = "errored"
+                    log.info('Harvest object changed state from "%s" to "%s": %s',
+                        old_state, obj.state, obj.id)
+
+
+    model.repo.commit_and_remove()
 
 
 @logic.side_effect_free
