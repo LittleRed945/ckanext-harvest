@@ -48,8 +48,8 @@ def harvest_source_clear(context, data_dict):
     '''
     return harvest_source_update(context, data_dict)
 
-#2021.12.2
-def complete_harvest_sources_delete(context, data_dict):
+
+def purge_harvest_sources(context, data_dict):
     '''
         Authorization check for clearing history for all harvest sources
         Only sysadmins can do it
@@ -59,8 +59,8 @@ def complete_harvest_sources_delete(context, data_dict):
     else:
         return {'success': True}
 
-#2021.12.2
-def complete_harvest_source_delete(context, data_dict):
+
+def purge_harvest_source(context, data_dict):
     '''
         Authorization check for clearing a harvest source
         It forwards to harvest_source_update

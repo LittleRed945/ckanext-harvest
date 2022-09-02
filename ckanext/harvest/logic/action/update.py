@@ -237,8 +237,7 @@ def harvest_source_clear(context, data_dict):
 
     return {'id': harvest_source_id}
 
-#2021.12.2
-def complete_harvest_source_delete(context, data_dict):
+def purge_harvest_source(context, data_dict):
     '''
     Clears all datasets, jobs and objects related to a harvest source, includes
     the source itself.  This is useful to clean history of long running
@@ -247,7 +246,7 @@ def complete_harvest_source_delete(context, data_dict):
     :type id: string
     '''
 
-    check_access('complete_harvest_source_delete', context, data_dict)
+    check_access('purge_harvest_source', context, data_dict)
 
     harvest_source_id = data_dict.get('id')
 
@@ -376,7 +375,8 @@ def complete_harvest_source_delete(context, data_dict):
     model.Session.execute(sql)
     # Refresh the index for this source to update the status object
     get_action('harvest_source_reindex')(context, {'id': harvest_source_id})
-
+    #purge the dataset itself
+    get_action("dataset_purge")(context,{'id':harvest_source_id})
     return {'id': harvest_source_id}
 
 

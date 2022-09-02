@@ -111,8 +111,8 @@
         </a>
       </li>
       <li>
-        <a href="{% url_for 'harvest_delete', id=data.name %}?complete=True"  >
-          {{ _('Delete complete source') }}
+        <a href="{% url_for 'harvest_delete', id=data.name %}?purge=True"  >
+          {{ _('Purge source') }}
         </a>
       </li>
     </ul>
