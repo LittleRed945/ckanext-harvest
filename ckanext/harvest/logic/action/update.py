@@ -870,7 +870,14 @@ def harvest_job_abort(context, data_dict):
             job_id = job.id
             job = get_action('harvest_job_show')(
                 context, {'id': job_id})
-
+    job_id = job['id']
+    job_obj = HarvestJob.get(job['id'])
+    objs = job_obj.objects
+    abort_obj_ids=[]
+    for obj in objs:
+        if obj.state not in ('COMPLETE', 'ERROR','FETCH','IMPORT'):
+            abort_obj_ids.append(obj.id)
+    delete_queues(job_id,abort_obj_ids)
     if job['status'] != 'Finished':
         # i.e. New or Running
         job_obj = HarvestJob.get(job['id'])
@@ -882,26 +889,26 @@ def harvest_job_abort(context, data_dict):
         log.info('Harvest job unchanged. Source %s status is: "%s"',
                  job['id'], job['status'])
     
-    job_id = job['id']
     # HarvestObjects set to ERROR
     job_obj = HarvestJob.get(job['id'])
     objs = job_obj.objects
-    abort_obj_ids=[]
     for obj in objs:
-        if obj.state not in ('COMPLETE', 'ERROR'):
+        if obj.state not in ('COMPLETE', 'ERROR','FETCH','IMPORT'):
             old_state = obj.state
             obj.state = 'ERROR'
             obj.report_status = "errored"
-            abort_obj_ids.append(obj.id)
             log.info('Harvest object changed state from "%s" to "%s": %s',
                      old_state, obj.state, obj.id)
         else:
             log.info('Harvest object not changed from "%s": %s',
                      obj.state, obj.id)
     model.repo.commit_and_remove()
-
     job_obj = HarvestJob.get(job['id'])
-    delete_queues(job_id,abort_obj_ids)
+    objs = job_obj.objects
+    for obj in objs:
+        log.info('Harvest object is  "%s": %s',
+                     obj.state, obj.id)
+    job_obj = HarvestJob.get(job['id'])
     HarvestGatherError.create('job is aborted.',job_obj)
     return harvest_job_dictize(job_obj, context)
 
