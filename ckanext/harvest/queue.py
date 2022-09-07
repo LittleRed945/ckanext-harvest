@@ -113,9 +113,9 @@ def purge_queues():
         channel.queue_purge(queue=get_fetch_queue_name())
         log.info('AMQP queue purged: %s', get_fetch_queue_name())
     elif backend == 'redis':
-        get_gather_consumer().queue_purge()
+        log.debug("Delete {} job in gather queue".format(get_gather_consumer().queue_purge()))
         log.info('Redis gather queue purged')
-        get_fetch_consumer().queue_purge()
+        log.debug("Delete {} objects in fetch queue".format(get_fetch_consumer().queue_purge()))
         log.info('Redis fetch queue purged')
 
 

@@ -875,7 +875,7 @@ def harvest_job_abort(context, data_dict):
     objs = job_obj.objects
     abort_obj_ids=[]
     for obj in objs:
-        if obj.state not in ('COMPLETE', 'ERROR','FETCH','IMPORT'):
+        if obj.state not in ('COMPLETE', 'ERROR', 'FETCH', 'IMPORT'):
             abort_obj_ids.append(obj.id)
     delete_queues(job_id,abort_obj_ids)
     if job['status'] != 'Finished':
@@ -893,7 +893,7 @@ def harvest_job_abort(context, data_dict):
     job_obj = HarvestJob.get(job['id'])
     objs = job_obj.objects
     for obj in objs:
-        if obj.state not in ('COMPLETE', 'ERROR','FETCH','IMPORT'):
+        if obj.state not in ('COMPLETE', 'ERROR', 'FETCH', 'IMPORT'):
             old_state = obj.state
             obj.state = 'ERROR'
             obj.report_status = "errored"
@@ -935,15 +935,15 @@ def harvest_job_terminate(context, data_dict):
             #set its obj state to ERROR
             objs = job_obj.objects
             for obj in objs:
-                if obj.state not in ('COMPLETE', 'ERROR'):
+                if obj.state not in ('COMPLETE', 'ERROR', 'FETCH', 'IMPORT'):
                     old_state = obj.state
                     obj.state = 'ERROR'
                     obj.report_status = "errored"
                     log.info('Harvest object changed state from "%s" to "%s": %s',
                         old_state, obj.state, obj.id)
-        else:
-            log.info('Harvest object not changed from "%s": %s',
-                     obj.state, obj.id)
+                else:
+                    log.info('Harvest object not changed from "%s": %s',
+                        obj.state, obj.id)
     #get the jobs that the status are Running
     jobs = harvest_job_list(
         context, {'status': u'Running'})
@@ -959,13 +959,15 @@ def harvest_job_terminate(context, data_dict):
             #set its obj state to ERROR
             objs = job_obj.objects
             for obj in objs:
-                if obj.state not in ('COMPLETE', 'ERROR'):
+                if obj.state not in ('COMPLETE', 'ERROR', 'FETCH', 'IMPORT'):
                     old_state = obj.state
                     obj.state = 'ERROR'
                     obj.report_status = "errored"
                     log.info('Harvest object changed state from "%s" to "%s": %s',
                         old_state, obj.state, obj.id)
-
+                else:
+                    log.info('Harvest object not changed from "%s": %s',
+                        obj.state, obj.id)
 
     model.repo.commit_and_remove()
 
