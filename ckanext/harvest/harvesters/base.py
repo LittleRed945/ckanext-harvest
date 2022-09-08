@@ -13,7 +13,7 @@ from ckantoolkit import config
 
 from ckan import plugins as p
 from ckan import model
-from ckan.model import Session, Package, PACKAGE_NAME_MAX_LENGTH
+from ckan.model import Session, Package, User, PACKAGE_NAME_MAX_LENGTH
 
 from ckan.logic.schema import default_create_package_schema
 from ckan.lib.navl.validators import ignore_missing, ignore
@@ -282,7 +282,6 @@ class HarvesterBase(SingletonPlugin):
             schema = default_create_package_schema()
             schema['id'] = [ignore_missing, six.text_type]
             schema['__junk'] = [ignore]
-
             # Check API version
             if self.config:
                 try:
@@ -390,14 +389,16 @@ class HarvesterBase(SingletonPlugin):
                     else 'package_create_rest')(context, package_dict)
 
             Session.commit()
+            
+            site_user = p.toolkit.get_action("get_site_user")(context,package_dict)
+            #ckan site api key
+            api_key=site_user.get('apikey')
             try:
                 if new_package[u'resources']:
                     resource_ids = [r[u'id'] for r in new_package[u'resources']]
                     for r in new_package[u'resources']:
                         r_format=r[u'format'].lower()
                         r_url=target_urls[r[u'id']]
-                        #Your ckan api key
-                        api_key=""
                         if r_url!='': 
                             r_get=requests.get(r_url, allow_redirects=True)
                             
@@ -423,10 +424,8 @@ class HarvesterBase(SingletonPlugin):
                             ) 
                         request_result=r_post.json()
                         if request_result[u'success']:
-                            log.info("result:{}".format(request_result))
                             log.info("The resource {} is uploaded to FileStore".format(r[u'id']))
                         else:
-                            log.info(action_url)
                             log.info("The FileStore upload is failed!")
             except Exception as e:
                 print(e)
