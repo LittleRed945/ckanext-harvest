@@ -30,7 +30,6 @@ def harvest_job_dictize(job, context):
     out = job.as_dict()
 
     model = context['model']
-
     if context.get('return_stats', True):
         stats = model.Session.query(
             HarvestObject.report_status,
@@ -60,23 +59,26 @@ def harvest_job_dictize(job, context):
             out['stats']['errored'] = out['stats'].get('errored', 0) + count
 
         #delete count improve
-        current_objects = model.Session.query(
-            HarvestObject.harvest_source_id,
-            func.count(HarvestObject.id).label('total_objects'))\
-            .filter_by(current=True)\
-            .group_by(HarvestObject.harvest_source_id).all()
-        except_deleted_count=0
-        for status, count in stats:
-            if status != 'deleted':
-                except_deleted_count+=count
-        try:
-            for source_id,count in current_objects:
-                if source_id == out['source_id']:
-                    this_source_count=count
-            out['stats']['deleted']=this_source_count-except_deleted_count
-        except Exception as e:
-            print(e)
-            pass
+        package_obj=context.get('package')
+        if package_obj:
+            #get the last job
+            last_jobs=HarvestJob.filter(source_id=package_obj.id) \
+                     .filter_by(status='Finished') \
+                     .order_by(HarvestJob.created.desc())[:2]
+            for last_job in last_jobs:
+                if last_job.id == job.id:
+                    continue
+                else:
+                    #the count of the last job status exclude deleted 
+                    last_stats_count=model.Session.query(
+                        HarvestObject.report_status) \
+                    .filter_by(harvest_job_id=last_job.id)\
+                    .filter(HarvestObject.report_status!='deleted').count()
+                    deleted_count = last_stats_count 
+                    for status in ['updated', 'not modified', 'errored']:
+                        deleted_count -= out['stats'][status] 
+                    if deleted_count > 0:
+                        out['stats']['deleted'] = deleted_count 
 
     if context.get('return_error_summary', True):
         q = model.Session.query(
