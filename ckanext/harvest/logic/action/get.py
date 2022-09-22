@@ -438,12 +438,8 @@ def harvest_get_notifications_recipients(context, data_dict):
 
     # Send mail to all sysadmins with a non-empty email address
     for sysadmin in sysadmins:
-<<<<<<< HEAD
-        if sysadmin.email:
-=======
         email_address = sysadmin.email
         if email_address and email_address.strip():
->>>>>>> refs/rewritten/fix-email-access-authn
             recipients.append({
                 'name': sysadmin.name,
                 'email': sysadmin.email

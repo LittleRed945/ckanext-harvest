@@ -19,6 +19,7 @@ def harvest_source_delete(context, data_dict):
     p.toolkit.check_access('harvest_source_delete', context, data_dict)
 
     p.toolkit.get_action('package_delete')(context, data_dict)
+
     if context.get('purge_resource', False):
 
         # We need the id. The name won't work.

@@ -736,10 +736,13 @@ def delete_view(id):
                                                             u'true',
                                                             u'1',
                                                         )
+
         tk.get_action('harvest_source_delete')(context, {'id': id})
+
         if context['purge_resource']:
             h.flash_success(_('Harvesting source successfully purged'))
             return h.redirect_to('/harvest')
+
         if context['clear_source']:
             h.flash_success(_('Harvesting source successfully cleared'))
         else:
