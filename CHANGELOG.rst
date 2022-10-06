@@ -11,6 +11,11 @@ and this project adheres to `Semantic Versioning <http://semver.org/>`_
 Unreleased_
 ***********
 
+Changed
+-------
+
+- upload resources to FileStore after creating or updataing package from harvest
+
 ***********
 1.4.1_ - 2022-09-20
 ***********

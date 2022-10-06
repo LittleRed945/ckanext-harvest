@@ -3,6 +3,7 @@
 import logging
 import re
 import uuid
+import requests
 
 from sqlalchemy import exists, and_
 from sqlalchemy.sql import update, bindparam
@@ -304,6 +305,10 @@ class HarvesterBase(SingletonPlugin):
                 tags = package_dict.get('tags', [])
                 package_dict['tags'] = self._clean_tags(tags)
 
+            # resources url dict
+            target_urls = {}
+            site_url = config.get('ckan.site_url')
+
             # Check if package exists
             try:
                 # _find_existing_package can be overridden if necessary
@@ -316,6 +321,12 @@ class HarvesterBase(SingletonPlugin):
                 if 'metadata_modified' not in package_dict or \
                    package_dict['metadata_modified'] > existing_package_dict.get('metadata_modified'):
                     log.info('Package with GUID %s exists and needs to be updated' % harvest_object.guid)
+
+                    # FileStore API resource update url
+                    for r in package_dict.get(u'resources', []):
+                        target_urls[r[u'id']] = r[u'url']
+                    api_url = site_url+'/api/action/resource_update'
+
                     # Update package
                     context.update({'id': package_dict['id']})
                     package_dict.setdefault('name',
@@ -350,6 +361,11 @@ class HarvesterBase(SingletonPlugin):
             except p.toolkit.ObjectNotFound:
                 # Package needs to be created
 
+                # FileStore API resource create url
+                for r in package_dict.get(u'resources', []):
+                    target_urls[r[u'id']] = r[u'url']
+                api_url = site_url+'/api/action/resource_create'
+
                 # Get rid of auth audit on the context otherwise we'll get an
                 # exception
                 context.pop('__auth_audit', None)
@@ -376,6 +392,45 @@ class HarvesterBase(SingletonPlugin):
                     else 'package_create_rest')(context, package_dict)
 
             Session.commit()
+
+            site_user = p.toolkit.get_action("get_site_user")(context, package_dict)
+            # ckan site api key
+            api_key = site_user.get('apikey')
+
+            # FileStore upload
+            try:
+                if new_package[u'resources']:
+                    for r in new_package[u'resources']:
+                        r_url = target_urls[r[u'id']]
+                        if r_url != '':
+                            r_get = requests.get(r_url, allow_redirects=True)
+
+                            if "Content-Disposition" in r_get.headers.keys():
+                                fname = re.findall("filename=(.+)", r_get.headers["Content-Disposition"])[0]
+                            else:
+                                fname = r_url.split("/")[-1]
+                            r_post = requests.post(
+                                   api_url,
+                                   data=r,
+                                   headers={"X-CKAN-API-Key": api_key},
+                                   files={'upload': (fname, r_get.content)}
+                            )
+                        else:
+                            r[u'url'] = ""
+                            # update resource but not upload any file
+                            r_post = requests.post(
+                                   api_url,
+                                   data=r,
+                                   headers={"X-CKAN-API-Key": api_key},
+                                   files={'upload': (fname, r_get.content)}
+                            )
+                        request_result = r_post.json()
+                        if request_result[u'success']:
+                            log.info("The resource {} is uploaded to FileStore".format(r[u'id']))
+                        else:
+                            log.info("The FileStore upload is failed!")
+            except Exception as e:
+                log.exception(e)
 
             return True
 
