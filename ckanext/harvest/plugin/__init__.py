@@ -295,7 +295,7 @@ class Harvest(MixinPlugin, p.SingletonPlugin, DefaultDatasetForm, DefaultTransla
             bp_routes = [
                 "delete", "refresh", "admin", "about",
                 "clear", "job_list", "job_show_last", "job_show",
-                "job_abort", "object_show"
+                "job_abort", "job_terminate", "object_show"
             ]
             mappings.update({
                 'harvest_' + route: 'harvester.' + route

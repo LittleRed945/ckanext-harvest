@@ -49,6 +49,10 @@ def job_abort(source, id):
     return utils.job_abort_view(source, id)
 
 
+def job_terminate(source):
+    return utils.job_terminate_view(source)
+
+
 def object_show(id, ref_type):
     (response, content) = utils.object_show_view(id, ref_type, make_response())
     response.set_data(content)
@@ -89,6 +93,10 @@ harvester.add_url_rule(
 harvester.add_url_rule(
     "/" + utils.DATASET_TYPE_NAME + "/<source>/job/<id>/abort",
     view_func=job_abort,
+)
+harvester.add_url_rule(
+    "/" + utils.DATASET_TYPE_NAME + "/<source>/terminate",
+    view_func=job_terminate,
 )
 harvester.add_url_rule(
     "/" + utils.DATASET_TYPE_NAME + "/object/<id>",

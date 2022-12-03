@@ -11,6 +11,13 @@ and this project adheres to `Semantic Versioning <http://semver.org/>`_
 Unreleased_
 ***********
 
+Changed
+-------
+
+- add a new button "Terminate" in templates/source/admin_base.html that can stop every running job and purge the queue.
+- add a new function "delete_queues" and "queue_delete" that can abort specific object in queue
+- job_abort can abort specific object in queue now
+
 ***********
 1.4.1_ - 2022-09-20
 ***********

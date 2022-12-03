@@ -26,7 +26,12 @@
         <i class="fa fa-ban icon-ban-circle"></i>
         {{ _('Stop') }}
       </a>
+  {% else %}
 
+      <a href="{{ h.url_for('harvest_job_terminate', source=harvest_source.name) }}" class="btn btn-default" title="terminate the Job">
+
+        {{ _('Terminate') }}
+      </a>
   {% endif %}
     {% set locale = h.dump_json({'content': _('Warning: This will remove all datasets for this source, as well as all previous job reports. Are you sure you want to continue?')}) %}
 

@@ -113,10 +113,31 @@ def purge_queues():
         channel.queue_purge(queue=get_fetch_queue_name())
         log.info('AMQP queue purged: %s', get_fetch_queue_name())
     elif backend == 'redis':
-        get_gather_consumer().queue_purge()
+        log.info("Delete {} job in gather queue".format(get_gather_consumer().queue_purge()))
         log.info('Redis gather queue purged')
-        get_fetch_consumer().queue_purge()
+        log.info("Delete {} objects in fetch queue".format(get_fetch_consumer().queue_purge()))
         log.info('Redis fetch queue purged')
+
+
+def delete_queues(job_id, obj_ids):
+    backend = config.get('ckan.harvest.mq.type', MQ_TYPE)
+    if backend == 'redis':
+        deleted_job_str = get_gather_consumer().queue_delete([json.dumps({'harvest_job_id': job_id})])
+        deleted_job = deleted_job_str.split(',')
+        if deleted_job[0] != '':
+            log.info("Delete {} job in gather queue".format(deleted_job[0]))
+            log.info("Delete {} objects in gather queue".format(len(deleted_job)))
+            log.info('Redis gather queue purged')
+        json_obj_ids = []
+        for obj_id in obj_ids:
+            json_obj_ids.append(json.dumps({'harvest_object_id': obj_id}))
+        deleted_objs_str = get_fetch_consumer().queue_delete(json_obj_ids)
+        deleted_objs = deleted_objs_str.split(',')
+        if deleted_objs[0] != '':
+            for obj_id in deleted_objs:
+                log.info("Delete {} object in fetch queue".format(obj_id))
+            log.info("Delete {} objects in fetch queue".format(len(deleted_objs)))
+            log.info('Redis fetch queue purged')
 
 
 def resubmit_jobs():
@@ -315,6 +336,37 @@ class RedisConsumer(object):
         '''
         script = self.redis.register_script(lua_code)
         return script(keys=[self.routing_key], args=[self.message_key])
+
+    def queue_delete(self, harvest_job_or_object_ids, queue=None):
+        '''
+        Delete specific key from the consumer's queue.
+        The ``queue`` parameter exists only for compatibility and is
+        ignored.
+        '''
+        # Use a script to make the operation atomic
+        lua_code = b'''
+            local routing_key = KEYS[1]
+            local message_key = ARGV[1]
+            local deleted_obj = ""
+            for i=2,#ARGV do
+                local j = ARGV[i]
+                local s = redis.call("lrem", routing_key, 0, j)
+                if s > 0 then
+                    local value = cjson.decode(j)
+                    local id = value[message_key]
+                    local persistance_key = routing_key .. ":" .. id
+                    redis.call("del", persistance_key)
+                    deleted_obj = deleted_obj .. id
+                    if i < #ARGV then
+                        deleted_obj = deleted_obj .. ","
+                    end
+                end
+            end
+            return deleted_obj
+        '''
+        harvest_job_or_object_ids.insert(0, self.message_key)
+        script = self.redis.register_script(lua_code)
+        return script(keys=[self.routing_key], args=harvest_job_or_object_ids)
 
     def basic_get(self, queue):
         body = self.redis.lpop(self.routing_key)
