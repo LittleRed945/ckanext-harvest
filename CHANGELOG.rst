@@ -11,6 +11,11 @@ and this project adheres to `Semantic Versioning <http://semver.org/>`_
 Unreleased_
 ***********
 
+Changed
+-------
+
+- Change the deleted count algorithm of function harvest_job_dictize in ckanext/harvest/logic/dictization.py
+
 ***********
 1.4.1_ - 2022-09-20
 ***********

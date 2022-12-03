@@ -30,7 +30,6 @@ def harvest_job_dictize(job, context):
     out = job.as_dict()
 
     model = context['model']
-
     if context.get('return_stats', True):
         stats = model.Session.query(
             HarvestObject.report_status,
@@ -58,6 +57,28 @@ def harvest_job_dictize(job, context):
             .count()
         if count > 0:
             out['stats']['errored'] = out['stats'].get('errored', 0) + count
+
+        # deleted count improve
+        package_obj = context.get('package')
+        if package_obj:
+            # get the last job
+            last_jobs = HarvestJob.filter(source_id=package_obj.id) \
+                     .filter_by(status='Finished') \
+                     .order_by(HarvestJob.created.desc())[:2]
+            for last_job in last_jobs:
+                if last_job.id == job.id:
+                    continue
+                else:
+                    # the count of the last job status exclude deleted
+                    last_stats_count = model.Session.query(
+                        HarvestObject.report_status) \
+                        .filter_by(harvest_job_id=last_job.id)\
+                        .filter(HarvestObject.report_status != 'deleted').count()
+                    deleted_count = last_stats_count
+                    for status in ['updated', 'not modified', 'errored']:
+                        deleted_count -= out['stats'][status]
+                    if deleted_count > 0:
+                        out['stats']['deleted'] = deleted_count
 
     if context.get('return_error_summary', True):
         q = model.Session.query(
